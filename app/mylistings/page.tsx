@@ -20,14 +20,17 @@ export default function MyListings() {
   const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) {
-        setUser(data.session.user);
-        fetchMyListings(data.session.user.id);
-      } else {
+    const checkUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
         window.location.href = '/login';
+        return;
       }
-    });
+      setUser(session.user);
+      fetchMyListings(session.user.id);
+    };
+
+    checkUser();
   }, []);
 
   async function fetchMyListings(userId: string) {
@@ -42,6 +45,23 @@ export default function MyListings() {
     setLoading(false);
   }
 
+  async function deleteListing(id: string) {
+    if (!confirm('Are you sure you want to delete this listing?')) return;
+
+    const { error } = await supabase
+      .from('listings')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      alert('Error deleting: ' + error.message);
+    } else {
+      alert('Listing deleted successfully');
+      // Refresh list
+      if (user) fetchMyListings(user.id);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
@@ -49,15 +69,18 @@ export default function MyListings() {
       <div className="max-w-7xl mx-auto px-6 pt-10">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-4xl font-bold text-gray-900">My Listings</h1>
-          <Link href="/post" className="bg-emerald-600 text-white px-6 py-3 rounded-2xl hover:bg-emerald-700">
-            Post New Room
+          <Link 
+            href="/post" 
+            className="bg-emerald-600 text-white px-6 py-3 rounded-2xl hover:bg-emerald-700 font-medium"
+          >
+            + Post New Room
           </Link>
         </div>
 
         {loading ? (
-          <p>Loading your listings...</p>
+          <p className="text-center py-12">Loading your listings...</p>
         ) : listings.length === 0 ? (
-          <div className="text-center py-20">
+          <div className="text-center py-20 bg-white rounded-3xl">
             <p className="text-2xl text-gray-600">You haven't posted any rooms yet</p>
             <Link href="/post" className="mt-6 inline-block bg-emerald-600 text-white px-8 py-4 rounded-2xl text-lg">
               Post Your First Room
@@ -76,7 +99,18 @@ export default function MyListings() {
                   <h3 className="font-semibold text-xl text-gray-900">{room.title}</h3>
                   {room.price && <p className="text-2xl font-bold text-emerald-600 mt-2">KSh {room.price}</p>}
                   {room.location && <p className="text-gray-600">{room.location}</p>}
-                  {room.description && <p className="text-gray-600 mt-4 line-clamp-3">{room.description}</p>}
+                  
+                  <div className="mt-6 flex gap-3">
+                    <button 
+                      onClick={() => deleteListing(room.id)}
+                      className="flex-1 bg-red-600 text-white py-3 rounded-2xl hover:bg-red-700 text-sm font-medium"
+                    >
+                      Delete
+                    </button>
+                    <button className="flex-1 border border-gray-300 py-3 rounded-2xl text-sm font-medium hover:bg-gray-50">
+                      Edit
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
