@@ -1,24 +1,7 @@
-import type { Metadata } from "next";
-import "./globals.css";
-
-export const metadata: Metadata = {
-  title: "KejaRoom - Rooms & Roommates in Kenya",
-  description: "Find rooms for rent and trustworthy roommates in Nairobi",
-  icons: {
-    icon: "/favicon.ico",
-  },
-};
-
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function Home() {
   return (
-    <html lang="en">
-      <body className="antialiased">
-        {children}
-      </body>
-    </html>
+    <div style={{ padding: 50 }}>
+      <h1>🔥 KejaRoom is LIVE</h1>
+    </div>
   );
 }

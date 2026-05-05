@@ -1,8 +1,12 @@
-import './globals.css';
+import type { Metadata } from "next";
+import "./globals.css";
 
-export const metadata = {
-  title: 'KejaRoom',
-  description: 'Find rooms in Kenya',
+export const metadata: Metadata = {
+  title: "KejaRoom - Rooms & Roommates in Kenya",
+  description: "Find rooms for rent and trustworthy roommates in Nairobi",
+  icons: {
+    icon: "/favicon.ico",
+  },
 };
 
 export default function RootLayout({
@@ -12,7 +16,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body className="antialiased">{children}</body>
     </html>
   );
 }
