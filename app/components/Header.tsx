@@ -9,7 +9,6 @@ export default function Header() {
   const router = useRouter();
 
   useEffect(() => {
-    // Check current user
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
     });
@@ -38,13 +37,19 @@ export default function Header() {
           <Link href="/" className="hover:text-emerald-600">Home</Link>
           <Link href="/browse" className="hover:text-emerald-600">Browse Rooms</Link>
           <Link href="/post" className="hover:text-emerald-600">Post a Room</Link>
+          {user && <Link href="/mylistings" className="hover:text-emerald-600">My Listings</Link>}
         </nav>
 
         <div className="flex items-center gap-4">
           {user ? (
             <>
-              <span className="text-sm text-gray-600">Hi, {user.email}</span>
-              <button onClick={handleLogout} className="text-red-600 hover:underline">Log Out</button>
+              <span className="text-sm text-gray-600 hidden md:block">Hi, {user.email?.split('@')[0]}</span>
+              <button 
+                onClick={handleLogout} 
+                className="text-red-600 hover:text-red-700 font-medium"
+              >
+                Log Out
+              </button>
             </>
           ) : (
             <>
