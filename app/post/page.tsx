@@ -10,7 +10,6 @@ export default function PostRoom() {
     location: 'Nairobi',
     description: '',
   });
-
   const [images, setImages] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
@@ -24,14 +23,9 @@ export default function PostRoom() {
       const newFiles = Array.from(e.target.files);
       setImages(prev => [...prev, ...newFiles]);
 
-      // Create previews
       newFiles.forEach(file => {
         const reader = new FileReader();
-        reader.onload = (e) => {
-          if (e.target?.result) {
-            setImagePreviews(prev => [...prev, e.target!.result as string]);
-          }
-        };
+        reader.onload = (ev) => setImagePreviews(prev => [...prev, ev.target!.result as string]);
         reader.readAsDataURL(file);
       });
     }
@@ -46,43 +40,38 @@ export default function PostRoom() {
     e.preventDefault();
     setLoading(true);
 
-    let uploadedUrls: string[] = [];
+    let imageUrls: string[] = [];
 
-    // Upload multiple images
+    // Upload images
     for (const image of images) {
-      const fileExt = image.name.split('.').pop();
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-
+      const fileName = `${Date.now()}-${image.name}`;
       const { data, error } = await supabase.storage
         .from('room-images')
         .upload(fileName, image);
 
-      if (!error && data) {
-        const publicUrl = supabase.storage.from('room-images').getPublicUrl(fileName).data.publicUrl;
-        uploadedUrls.push(publicUrl);
+      if (!error) {
+        const url = supabase.storage.from('room-images').getPublicUrl(fileName).data.publicUrl;
+        imageUrls.push(url);
       }
     }
 
-    // Save room with image URLs
-    const { error: insertError } = await supabase.from('listings').insert([{
+    const { error } = await supabase.from('listings').insert([{
       title: formData.title,
       price: parseInt(formData.price) || 15000,
       location: formData.location,
       description: formData.description,
-      image_url: uploadedUrls[0] || null,           // Main image
-      // You can add image_urls array later if you update the table
+      image_url: imageUrls[0] || null,        // First image as main
+      user_id: (await supabase.auth.getUser()).data.user?.id
     }]);
 
-    if (insertError) {
-      alert('Error: ' + insertError.message);
+    if (error) {
+      alert('Error: ' + error.message);
     } else {
-      alert(`✅ Room posted successfully with ${uploadedUrls.length} photo(s)!`);
-      // Reset form
+      alert('✅ Room posted successfully!');
       setFormData({ title: '', price: '', location: 'Nairobi', description: '' });
       setImages([]);
       setImagePreviews([]);
     }
-
     setLoading(false);
   };
 
@@ -95,41 +84,26 @@ export default function PostRoom() {
 
         <div className="bg-white rounded-3xl shadow p-10 mt-8">
           <form onSubmit={handleSubmit} className="space-y-8">
-
-            {/* Multiple Photo Upload */}
             <div>
-              <label className="block text-lg font-semibold text-gray-900 mb-3">Room Photos (You can upload multiple)</label>
-              <input 
-                type="file" 
-                accept="image/*" 
-                multiple
-                onChange={handleImageChange} 
-                className="w-full border-2 border-gray-400 rounded-2xl px-5 py-4"
-              />
-
-              {/* Image Previews */}
+              <label className="block text-lg font-semibold text-gray-900 mb-2">Room Photos</label>
+              <input type="file" multiple accept="image/*" onChange={handleImageChange} className="w-full border-2 border-gray-400 rounded-2xl px-5 py-4" />
+              
               {imagePreviews.length > 0 && (
-                <div className="grid grid-cols-3 gap-4 mt-6">
-                  {imagePreviews.map((preview, index) => (
-                    <div key={index} className="relative">
-                      <img src={preview} alt="preview" className="w-full h-32 object-cover rounded-2xl" />
-                      <button
-                        type="button"
-                        onClick={() => removeImage(index)}
-                        className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs"
-                      >
-                        ✕
-                      </button>
+                <div className="grid grid-cols-4 gap-3 mt-4">
+                  {imagePreviews.map((preview, i) => (
+                    <div key={i} className="relative">
+                      <img src={preview} className="w-full h-20 object-cover rounded-xl" />
+                      <button type="button" onClick={() => removeImage(i)} className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 rounded-full">×</button>
                     </div>
                   ))}
                 </div>
               )}
             </div>
 
-            {/* Rest of the form */}
+            {/* Other fields */}
             <div>
               <label className="block text-lg font-semibold text-gray-900 mb-2">Room Title</label>
-              <input name="title" value={formData.title} onChange={handleChange} required type="text" placeholder="e.g. Spacious Single Room in Kilimani" className="w-full border-2 border-gray-400 rounded-2xl px-5 py-4 text-lg" />
+              <input name="title" value={formData.title} onChange={handleChange} required type="text" placeholder="Room Title" className="w-full border-2 border-gray-400 rounded-2xl px-5 py-4 text-lg" />
             </div>
 
             <div>
@@ -137,22 +111,8 @@ export default function PostRoom() {
               <input name="price" value={formData.price} onChange={handleChange} required type="number" placeholder="18000" className="w-full border-2 border-gray-400 rounded-2xl px-5 py-4 text-lg" />
             </div>
 
-            <div>
-              <label className="block text-lg font-semibold text-gray-900 mb-2">Location</label>
-              <input name="location" value={formData.location} onChange={handleChange} type="text" className="w-full border-2 border-gray-400 rounded-2xl px-5 py-4 text-lg" />
-            </div>
-
-            <div>
-              <label className="block text-lg font-semibold text-gray-900 mb-2">Description</label>
-              <textarea name="description" value={formData.description} onChange={handleChange} rows={6} placeholder="Describe the room..." className="w-full border-2 border-gray-400 rounded-3xl px-5 py-4 text-lg"></textarea>
-            </div>
-
-            <button 
-              type="submit"
-              disabled={loading}
-              className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-400 text-white font-semibold py-5 rounded-2xl text-xl transition"
-            >
-              {loading ? 'Posting...' : `Post Room (${images.length} photos)`}
+            <button type="submit" disabled={loading} className="w-full bg-emerald-600 text-white py-5 rounded-2xl text-xl font-semibold">
+              {loading ? 'Posting...' : 'Post Room'}
             </button>
           </form>
         </div>
