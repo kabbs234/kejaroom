@@ -10,6 +10,7 @@ export default function PostRoom() {
     location: 'Nairobi',
     description: '',
   });
+
   const [images, setImages] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
@@ -21,36 +22,25 @@ export default function PostRoom() {
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const newFiles = Array.from(e.target.files);
-      setImages(prev => [...prev, ...newFiles]);
+      setImages(newFiles);
 
+      const previews: string[] = [];
       newFiles.forEach(file => {
         const reader = new FileReader();
-        reader.onload = (ev) => setImagePreviews(prev => [...prev, ev.target!.result as string]);
+        reader.onload = (ev) => previews.push(ev.target!.result as string);
         reader.readAsDataURL(file);
       });
+      setImagePreviews(previews);
     }
-  };
-
-  const removeImage = (index: number) => {
-    setImages(prev => prev.filter((_, i) => i !== index));
-    setImagePreviews(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    // Get current user
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      alert("Please log in first");
-      setLoading(false);
-      return;
-    }
+    let mainImageUrl = '';
 
-    let imageUrl = '';
-
-    // Upload first image
+    // Upload only the first image for now
     if (images.length > 0) {
       const fileName = `${Date.now()}-${images[0].name}`;
       const { data, error } = await supabase.storage
@@ -58,24 +48,23 @@ export default function PostRoom() {
         .upload(fileName, images[0]);
 
       if (!error) {
-        imageUrl = supabase.storage.from('room-images').getPublicUrl(fileName).data.publicUrl;
+        mainImageUrl = supabase.storage.from('room-images').getPublicUrl(fileName).data.publicUrl;
       }
     }
 
-    // Save to database with user_id
     const { error } = await supabase.from('listings').insert([{
       title: formData.title,
       price: parseInt(formData.price) || 15000,
       location: formData.location,
       description: formData.description,
-      image_url: imageUrl,
-      user_id: user.id   // ← This is the important part
+      image_url: mainImageUrl,
+      user_id: (await supabase.auth.getUser()).data.user?.id
     }]);
 
     if (error) {
       alert('Error: ' + error.message);
     } else {
-      alert('✅ Room posted successfully!');
+      alert(`✅ Room posted successfully! (${images.length} photo(s) selected - only first shown for now)`);
       setFormData({ title: '', price: '', location: 'Nairobi', description: '' });
       setImages([]);
       setImagePreviews([]);
@@ -92,16 +81,27 @@ export default function PostRoom() {
 
         <div className="bg-white rounded-3xl shadow p-10 mt-8">
           <form onSubmit={handleSubmit} className="space-y-8">
-            {/* Image Upload */}
+
             <div>
-              <label className="block text-lg font-semibold text-gray-900 mb-2">Room Photos</label>
-              <input type="file" multiple accept="image/*" onChange={handleImageChange} className="w-full border-2 border-gray-400 rounded-2xl px-5 py-4" />
+              <label className="block text-lg font-semibold text-gray-900 mb-2">
+                Room Photos <span className="text-sm font-normal text-gray-500">(First photo will be main image)</span>
+              </label>
+              <input 
+                type="file" 
+                multiple 
+                accept="image/*" 
+                onChange={handleImageChange} 
+                className="w-full border-2 border-gray-400 rounded-2xl px-5 py-4"
+              />
+
               {imagePreviews.length > 0 && (
-                <div className="grid grid-cols-4 gap-3 mt-4">
-                  {imagePreviews.map((preview, i) => (
-                    <div key={i} className="relative">
-                      <img src={preview} className="w-full h-20 object-cover rounded-xl" />
-                      <button type="button" onClick={() => removeImage(i)} className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5">×</button>
+                <div className="mt-6 grid grid-cols-3 gap-4">
+                  {imagePreviews.map((preview, index) => (
+                    <div key={index} className="relative">
+                      <img src={preview} alt="preview" className="w-full h-32 object-cover rounded-2xl border" />
+                      <div className="absolute top-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+                        {index === 0 ? 'Main' : 'Extra'}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -110,7 +110,7 @@ export default function PostRoom() {
 
             <div>
               <label className="block text-lg font-semibold text-gray-900 mb-2">Room Title</label>
-              <input name="title" value={formData.title} onChange={handleChange} required type="text" placeholder="Room Title" className="w-full border-2 border-gray-400 rounded-2xl px-5 py-4 text-lg" />
+              <input name="title" value={formData.title} onChange={handleChange} required type="text" placeholder="e.g. Spacious Single Room in Kilimani" className="w-full border-2 border-gray-400 rounded-2xl px-5 py-4 text-lg" />
             </div>
 
             <div>
@@ -118,7 +118,11 @@ export default function PostRoom() {
               <input name="price" value={formData.price} onChange={handleChange} required type="number" placeholder="18000" className="w-full border-2 border-gray-400 rounded-2xl px-5 py-4 text-lg" />
             </div>
 
-            <button type="submit" disabled={loading} className="w-full bg-emerald-600 text-white py-5 rounded-2xl text-xl font-semibold">
+            <button 
+              type="submit"
+              disabled={loading}
+              className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-400 text-white font-semibold py-5 rounded-2xl text-xl"
+            >
               {loading ? 'Posting...' : 'Post Room'}
             </button>
           </form>
