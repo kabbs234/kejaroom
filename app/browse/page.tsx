@@ -16,6 +16,26 @@ export default function Browse() {
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // 🔥 DELETE FUNCTION
+  const handleDelete = async (id: string) => {
+    const confirmDelete = confirm("Delete this listing?");
+    if (!confirmDelete) return;
+
+    const { error } = await supabase
+      .from('listings')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error("Delete error:", error);
+      alert("Failed to delete listing ❌");
+    } else {
+      // remove from UI instantly
+      setListings((prev) => prev.filter((item) => item.id !== id));
+      alert("Listing deleted ✅");
+    }
+  };
+
   useEffect(() => {
     async function fetchListings() {
       const { data, error } = await supabase
@@ -49,21 +69,50 @@ export default function Browse() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mt-8">
             {listings.map((room) => (
-              <div key={room.id} className="bg-white rounded-3xl overflow-hidden shadow hover:shadow-xl transition">
+              <div
+                key={room.id}
+                className="bg-white rounded-3xl overflow-hidden shadow hover:shadow-xl transition"
+              >
                 {room.image_url ? (
-                  <img 
-                    src={room.image_url} 
+                  <img
+                    src={room.image_url}
                     alt={room.title}
                     className="w-full h-64 object-cover"
                   />
                 ) : (
-                  <div className="h-64 bg-gray-200 flex items-center justify-center text-6xl">🏠</div>
+                  <div className="h-64 bg-gray-200 flex items-center justify-center text-6xl">
+                    🏠
+                  </div>
                 )}
+
                 <div className="p-6">
-                  <h3 className="font-semibold text-xl text-gray-900">{room.title}</h3>
-                  {room.price && <p className="text-2xl font-bold text-emerald-600 mt-1">KSh {room.price}</p>}
-                  {room.location && <p className="text-gray-600">{room.location}</p>}
-                  {room.description && <p className="text-gray-600 mt-4 text-sm line-clamp-3">{room.description}</p>}
+                  <h3 className="font-semibold text-xl text-gray-900">
+                    {room.title}
+                  </h3>
+
+                  {room.price && (
+                    <p className="text-2xl font-bold text-emerald-600 mt-1">
+                      KSh {room.price}
+                    </p>
+                  )}
+
+                  {room.location && (
+                    <p className="text-gray-600">{room.location}</p>
+                  )}
+
+                  {room.description && (
+                    <p className="text-gray-600 mt-4 text-sm line-clamp-3">
+                      {room.description}
+                    </p>
+                  )}
+
+                  {/* 🔥 DELETE BUTTON */}
+                  <button
+                    onClick={() => handleDelete(room.id)}
+                    className="mt-5 w-full bg-red-500 hover:bg-red-600 text-white py-2 rounded-xl transition"
+                  >
+                    Delete Listing
+                  </button>
                 </div>
               </div>
             ))}
