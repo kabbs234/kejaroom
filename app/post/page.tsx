@@ -15,82 +15,92 @@ export default function PostRoom() {
   const [previews, setPreviews] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files) return;
-    const selectedFiles = Array.from(e.target.files);
-    setImages(selectedFiles);
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const selected = Array.from(e.target.files);
+      setImages(selected);
 
-    const newPreviews: string[] = [];
-    selectedFiles.forEach(file => {
-      const reader = new FileReader();
-      reader.onload = () => newPreviews.push(reader.result as string);
-      reader.readAsDataURL(file);
-    });
-    setPreviews(newPreviews);
+      const newPreviews: string[] = [];
+      selected.forEach(file => {
+        const reader = new FileReader();
+        reader.onload = () => newPreviews.push(reader.result as string);
+        reader.readAsDataURL(file);
+      });
+      setPreviews(newPreviews);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    let mainImage = '';
+    const uploadedUrls: string[] = [];
 
-    if (images.length > 0) {
-      const fileName = Date.now() + '-' + images[0].name;
-      const { data } = await supabase.storage
+    for (const image of images) {
+      const fileName = `${Date.now()}-${image.name}`;
+      const { data, error } = await supabase.storage
         .from('room-images')
-        .upload(fileName, images[0]);
+        .upload(fileName, image);
 
-      if (data) mainImage = supabase.storage.from('room-images').getPublicUrl(fileName).data.publicUrl;
+      if (!error) {
+        const url = supabase.storage.from('room-images').getPublicUrl(fileName).data.publicUrl;
+        uploadedUrls.push(url);
+      }
     }
 
-    await supabase.from('listings').insert([{
+    const { error } = await supabase.from('listings').insert([{
       title: formData.title,
-      price: Number(formData.price),
+      price: parseInt(formData.price) || 15000,
       location: formData.location,
       description: formData.description,
-      image_url: mainImage,
-      user_id: (await supabase.auth.getUser()).data.user?.id
+      image_url: uploadedUrls[0] || null,        // First image as main
+      // We'll use image_url for now. Later we can add image_urls array
     }]);
 
-    alert(`✅ Posted successfully! (${images.length} photos selected - showing first one)`);
-    setFormData({ title: '', price: '', location: 'Nairobi', description: '' });
-    setImages([]);
-    setPreviews([]);
+    if (error) alert('Error: ' + error.message);
+    else {
+      alert(`✅ Posted successfully with ${uploadedUrls.length} photos!`);
+      setFormData({ title: '', price: '', location: 'Nairobi', description: '' });
+      setImages([]);
+      setPreviews([]);
+    }
     setLoading(false);
   };
 
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
-      <div className="max-w-3xl mx-auto px-6 pt-12">
-        <h1 className="text-4xl font-bold text-gray-900">Post Your Room</h1>
 
-        <div className="bg-white rounded-3xl p-10 mt-8 shadow">
-          <form onSubmit={handleSubmit}>
-            <div className="mb-8">
-              <label className="block text-lg font-semibold mb-3">Select Photos</label>
-              <input type="file" multiple accept="image/*" onChange={handleImageSelect} className="w-full" />
+      <div className="max-w-3xl mx-auto px-6 pt-12">
+        <h1 className="text-4xl font-bold text-gray-900 mb-2">Post Your Room</h1>
+
+        <div className="bg-white rounded-3xl shadow p-10 mt-8">
+          <form onSubmit={handleSubmit} className="space-y-8">
+            <div>
+              <label className="block text-lg font-semibold text-gray-900 mb-2">Upload Photos</label>
+              <input type="file" multiple accept="image/*" onChange={handleImageChange} className="w-full border-2 border-gray-400 rounded-2xl px-5 py-4" />
               
               {previews.length > 0 && (
                 <div className="grid grid-cols-4 gap-3 mt-6">
                   {previews.map((src, i) => (
-                    <div key={i} className="relative">
-                      <img src={src} className="rounded-2xl h-24 object-cover w-full" />
-                      <div className="absolute top-1 left-1 bg-black text-white text-xs px-2 py-0.5 rounded">
-                        {i === 0 ? 'Main' : ''}
-                      </div>
-                    </div>
+                    <img key={i} src={src} className="h-24 object-cover rounded-2xl" />
                   ))}
                 </div>
               )}
             </div>
 
-            <input name="title" placeholder="Room Title" value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})} required className="w-full border-2 border-gray-300 rounded-2xl px-5 py-4 mb-6" />
-            <input name="price" type="number" placeholder="Price (KSh)" value={formData.price} onChange={(e) => setFormData({...formData, price: e.target.value})} required className="w-full border-2 border-gray-300 rounded-2xl px-5 py-4 mb-6" />
+            <div>
+              <label className="block text-lg font-semibold text-gray-900 mb-2">Room Title</label>
+              <input name="title" value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})} required className="w-full border-2 border-gray-400 rounded-2xl px-5 py-4 text-lg" />
+            </div>
 
-            <button type="submit" disabled={loading} className="w-full bg-emerald-600 text-white py-4 rounded-2xl text-lg font-semibold">
-              {loading ? "Posting..." : "Post Room"}
+            <div>
+              <label className="block text-lg font-semibold text-gray-900 mb-2">Monthly Rent (KSh)</label>
+              <input name="price" value={formData.price} onChange={(e) => setFormData({...formData, price: e.target.value})} required type="number" className="w-full border-2 border-gray-400 rounded-2xl px-5 py-4 text-lg" />
+            </div>
+
+            <button type="submit" disabled={loading} className="w-full bg-emerald-600 text-white py-5 rounded-2xl text-xl">
+              {loading ? 'Posting...' : 'Post Room'}
             </button>
           </form>
         </div>
