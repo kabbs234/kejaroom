@@ -53,12 +53,12 @@ export default function PostRoom() {
       price: parseInt(formData.price) || 15000,
       location: formData.location,
       description: formData.description,
-      image_url: uploadedUrls[0] || null,        // First image as main
-      // We'll use image_url for now. Later we can add image_urls array
+      images: uploadedUrls,           // Save all images as array
     }]);
 
-    if (error) alert('Error: ' + error.message);
-    else {
+    if (error) {
+      alert('Error: ' + error.message);
+    } else {
       alert(`✅ Posted successfully with ${uploadedUrls.length} photos!`);
       setFormData({ title: '', price: '', location: 'Nairobi', description: '' });
       setImages([]);
@@ -99,8 +99,8 @@ export default function PostRoom() {
               <input name="price" value={formData.price} onChange={(e) => setFormData({...formData, price: e.target.value})} required type="number" className="w-full border-2 border-gray-400 rounded-2xl px-5 py-4 text-lg" />
             </div>
 
-            <button type="submit" disabled={loading} className="w-full bg-emerald-600 text-white py-5 rounded-2xl text-xl">
-              {loading ? 'Posting...' : 'Post Room'}
+            <button type="submit" disabled={loading} className="w-full bg-emerald-600 text-white py-5 rounded-2xl text-xl font-semibold">
+              {loading ? 'Posting...' : `Post Room (${images.length} photos)`}
             </button>
           </form>
         </div>
