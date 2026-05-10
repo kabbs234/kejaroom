@@ -10,8 +10,7 @@ type Listing = {
   location?: string;
   description?: string;
   image_url?: string;
-  images?: string[];
-  user_id?: string;
+  images?: string[];   // For multiple photos
 };
 
 export default function Browse() {
@@ -40,7 +39,7 @@ export default function Browse() {
 
       <div className="max-w-7xl mx-auto px-6 pt-10">
         <h1 className="text-4xl font-bold text-gray-900">Browse Rooms in Kenya</h1>
-        <p className="text-gray-600 mt-2">Click on any room to see full details</p>
+        <p className="text-gray-600 mt-2">Click on any room to see full details and photos</p>
 
         {loading ? (
           <p className="text-center mt-12">Loading rooms...</p>
@@ -70,28 +69,36 @@ export default function Browse() {
         )}
       </div>
 
-      {/* Room Detail Modal */}
+      {/* Room Detail Modal (Like Airbnb) */}
       {selectedRoom && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setSelectedRoom(null)}>
-          <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-auto" onClick={e => e.stopPropagation()}>
-            <img 
-              src={selectedRoom.image_url || selectedRoom.images?.[0] || "https://picsum.photos/id/1015/600/400"} 
-              alt={selectedRoom.title}
-              className="w-full h-80 object-cover rounded-t-3xl"
-            />
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => setSelectedRoom(null)}>
+          <div className="bg-white rounded-3xl max-w-3xl w-full max-h-[90vh] overflow-auto" onClick={e => e.stopPropagation()}>
+            {/* Photo Gallery */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 p-4">
+              {selectedRoom.images && selectedRoom.images.length > 0 ? (
+                selectedRoom.images.map((url, i) => (
+                  <img key={i} src={url} className="rounded-2xl h-64 object-cover" />
+                ))
+              ) : (
+                <img src={selectedRoom.image_url || "https://picsum.photos/id/1015/600/400"} className="rounded-2xl h-64 object-cover col-span-2" />
+              )}
+            </div>
+
             <div className="p-8">
               <h2 className="text-3xl font-bold text-gray-900">{selectedRoom.title}</h2>
               {selectedRoom.price && <p className="text-4xl font-bold text-emerald-600 mt-4">KSh {selectedRoom.price}</p>}
               {selectedRoom.location && <p className="text-xl text-gray-700 mt-2">{selectedRoom.location}</p>}
-              
+
               <div className="mt-8">
                 <h3 className="font-semibold text-lg mb-3">Description</h3>
-                <p className="text-gray-700 leading-relaxed">{selectedRoom.description || "No description provided."}</p>
+                <p className="text-gray-700 leading-relaxed whitespace-pre-line">
+                  {selectedRoom.description || "No description provided."}
+                </p>
               </div>
 
               <button 
                 onClick={() => setSelectedRoom(null)}
-                className="mt-10 w-full bg-gray-800 text-white py-4 rounded-2xl text-lg"
+                className="mt-10 w-full bg-gray-900 text-white py-4 rounded-2xl text-lg font-medium"
               >
                 Close
               </button>
