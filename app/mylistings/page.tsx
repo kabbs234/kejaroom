@@ -11,33 +11,27 @@ type Listing = {
   location?: string;
   description?: string;
   image_url?: string;
-  created_at?: string;
 };
 
 export default function MyListings() {
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
-    const checkUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        window.location.href = '/login';
-        return;
-      }
-      setUser(session.user);
-      fetchMyListings(session.user.id);
-    };
-
-    checkUser();
+    loadMyListings();
   }, []);
 
-  async function fetchMyListings(userId: string) {
+  async function loadMyListings() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      window.location.href = '/login';
+      return;
+    }
+
     const { data, error } = await supabase
       .from('listings')
       .select('*')
-      .eq('user_id', userId)
+      .eq('user_id', user.id)
       .order('created_at', { ascending: false });
 
     if (error) console.error(error);
@@ -46,7 +40,7 @@ export default function MyListings() {
   }
 
   async function deleteListing(id: string) {
-    if (!confirm('Are you sure you want to delete this listing?')) return;
+    if (!confirm("Are you sure you want to delete this listing?")) return;
 
     const { error } = await supabase
       .from('listings')
@@ -54,11 +48,10 @@ export default function MyListings() {
       .eq('id', id);
 
     if (error) {
-      alert('Error deleting: ' + error.message);
+      alert("Failed to delete: " + error.message);
     } else {
-      alert('Listing deleted successfully');
-      // Refresh list
-      if (user) fetchMyListings(user.id);
+      alert("Listing deleted successfully");
+      loadMyListings(); // Refresh
     }
   }
 
@@ -69,10 +62,7 @@ export default function MyListings() {
       <div className="max-w-7xl mx-auto px-6 pt-10">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-4xl font-bold text-gray-900">My Listings</h1>
-          <Link 
-            href="/post" 
-            className="bg-emerald-600 text-white px-6 py-3 rounded-2xl hover:bg-emerald-700 font-medium"
-          >
+          <Link href="/post" className="bg-emerald-600 text-white px-6 py-3 rounded-2xl hover:bg-emerald-700">
             + Post New Room
           </Link>
         </div>
@@ -80,9 +70,9 @@ export default function MyListings() {
         {loading ? (
           <p className="text-center py-12">Loading your listings...</p>
         ) : listings.length === 0 ? (
-          <div className="text-center py-20 bg-white rounded-3xl">
+          <div className="text-center py-20">
             <p className="text-2xl text-gray-600">You haven't posted any rooms yet</p>
-            <Link href="/post" className="mt-6 inline-block bg-emerald-600 text-white px-8 py-4 rounded-2xl text-lg">
+            <Link href="/post" className="mt-6 inline-block bg-emerald-600 text-white px-8 py-4 rounded-2xl">
               Post Your First Room
             </Link>
           </div>
@@ -99,18 +89,13 @@ export default function MyListings() {
                   <h3 className="font-semibold text-xl text-gray-900">{room.title}</h3>
                   {room.price && <p className="text-2xl font-bold text-emerald-600 mt-2">KSh {room.price}</p>}
                   {room.location && <p className="text-gray-600">{room.location}</p>}
-                  
-                  <div className="mt-6 flex gap-3">
-                    <button 
-                      onClick={() => deleteListing(room.id)}
-                      className="flex-1 bg-red-600 text-white py-3 rounded-2xl hover:bg-red-700 text-sm font-medium"
-                    >
-                      Delete
-                    </button>
-                    <button className="flex-1 border border-gray-300 py-3 rounded-2xl text-sm font-medium hover:bg-gray-50">
-                      Edit
-                    </button>
-                  </div>
+
+                  <button 
+                    onClick={() => deleteListing(room.id)}
+                    className="mt-6 w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-2xl font-medium"
+                  >
+                    Delete Listing
+                  </button>
                 </div>
               </div>
             ))}
