@@ -11,16 +11,22 @@ export default function PostRoom() {
     description: '',
   });
 
-  const [image, setImage] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
+  const [selectedImages, setSelectedImages] = useState<File[]>([]);
+  const [previews, setPreviews] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setImage(e.target.files[0]);
-      const reader = new FileReader();
-      reader.onload = () => setPreview(reader.result as string);
-      reader.readAsDataURL(e.target.files[0]);
+    if (e.target.files) {
+      const files = Array.from(e.target.files);
+      setSelectedImages(files);
+
+      const newPreviews: string[] = [];
+      files.forEach(file => {
+        const reader = new FileReader();
+        reader.onload = () => newPreviews.push(reader.result as string);
+        reader.readAsDataURL(file);
+      });
+      setPreviews(newPreviews);
     }
   };
 
@@ -28,37 +34,39 @@ export default function PostRoom() {
     e.preventDefault();
     setLoading(true);
 
-    let imageUrl = '';
+    const uploadedUrls: string[] = [];
 
-    if (image) {
-      const fileName = `${Date.now()}-${image.name}`;
-      const { data } = await supabase.storage
+    // Upload all selected images
+    for (const file of selectedImages) {
+      const fileName = `${Date.now()}-${file.name}`;
+      const { data, error } = await supabase.storage
         .from('room-images')
-        .upload(fileName, image);
+        .upload(fileName, file);
 
-      if (data) {
-        imageUrl = supabase.storage.from('room-images').getPublicUrl(fileName).data.publicUrl;
+      if (!error) {
+        const url = supabase.storage.from('room-images').getPublicUrl(fileName).data.publicUrl;
+        uploadedUrls.push(url);
       }
     }
 
-    const { data: userData } = await supabase.auth.getUser();
-
+    // Save to database
     const { error } = await supabase.from('listings').insert([{
       title: formData.title,
       price: parseInt(formData.price) || 15000,
       location: formData.location,
       description: formData.description,
-      image_url: imageUrl,
-      user_id: userData.user?.id
+      image_url: uploadedUrls[0] || null,        // First photo as main
+      images: uploadedUrls,                      // All photos saved here
+      user_id: (await supabase.auth.getUser()).data.user?.id
     }]);
 
     if (error) {
       alert('Error: ' + error.message);
     } else {
-      alert('✅ Room posted successfully!');
+      alert(`✅ Room posted with ${uploadedUrls.length} photos!`);
       setFormData({ title: '', price: '', location: 'Nairobi', description: '' });
-      setImage(null);
-      setPreview(null);
+      setSelectedImages([]);
+      setPreviews([]);
     }
     setLoading(false);
   };
@@ -66,15 +74,23 @@ export default function PostRoom() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
+
       <div className="max-w-3xl mx-auto px-6 pt-12">
-        <h1 className="text-4xl font-bold text-gray-900">Post Your Room</h1>
+        <h1 className="text-4xl font-bold text-gray-900 mb-2">Post Your Room</h1>
 
         <div className="bg-white rounded-3xl shadow p-10 mt-8">
           <form onSubmit={handleSubmit} className="space-y-8">
             <div>
-              <label className="block text-lg font-semibold mb-2">Room Photo</label>
-              <input type="file" accept="image/*" onChange={handleImageChange} className="w-full border-2 border-gray-400 rounded-2xl px-5 py-4" />
-              {preview && <img src={preview} className="mt-4 h-48 rounded-2xl" />}
+              <label className="block text-lg font-semibold mb-2">Upload Photos (Multiple allowed)</label>
+              <input type="file" multiple accept="image/*" onChange={handleImageChange} className="w-full border-2 border-gray-400 rounded-2xl px-5 py-4" />
+              
+              {previews.length > 0 && (
+                <div className="grid grid-cols-4 gap-3 mt-6">
+                  {previews.map((src, i) => (
+                    <img key={i} src={src} className="h-24 object-cover rounded-2xl" />
+                  ))}
+                </div>
+              )}
             </div>
 
             <div>
@@ -87,8 +103,8 @@ export default function PostRoom() {
               <input name="price" value={formData.price} onChange={(e) => setFormData({...formData, price: e.target.value})} required type="number" className="w-full border-2 border-gray-400 rounded-2xl px-5 py-4" />
             </div>
 
-            <button type="submit" disabled={loading} className="w-full bg-emerald-600 text-white py-5 rounded-2xl text-xl">
-              {loading ? 'Posting...' : 'Post Room'}
+            <button type="submit" disabled={loading} className="w-full bg-emerald-600 text-white py-5 rounded-2xl text-xl font-semibold">
+              {loading ? 'Posting...' : `Post Room (${selectedImages.length} photos)`}
             </button>
           </form>
         </div>
