@@ -36,28 +36,28 @@ export default function PostRoom() {
 
     const uploadedUrls: string[] = [];
 
-    // Upload all photos
+    // Upload photos
     for (const file of selectedFiles) {
       const fileName = `${Date.now()}-${file.name}`;
-      const { error } = await supabase.storage
+      const { data } = await supabase.storage
         .from('room-images')
         .upload(fileName, file);
 
-      if (!error) {
-        const publicUrl = supabase.storage.from('room-images').getPublicUrl(fileName).data.publicUrl;
-        uploadedUrls.push(publicUrl);
+      if (data) {
+        const url = supabase.storage.from('room-images').getPublicUrl(fileName).data.publicUrl;
+        uploadedUrls.push(url);
       }
     }
 
     const { data: userData } = await supabase.auth.getUser();
 
+    // Only use existing columns
     const { error } = await supabase.from('listings').insert([{
       title: formData.title,
       price: parseInt(formData.price) || 15000,
       location: formData.location,
       description: formData.description,
-      image_url: uploadedUrls[0] || null,
-      images: uploadedUrls,
+      image_url: uploadedUrls[0] || null,   // Save only first photo for now
       user_id: userData.user?.id
     }]);
 
@@ -83,14 +83,8 @@ export default function PostRoom() {
           <form onSubmit={handleSubmit} className="space-y-8">
             <div>
               <label className="block text-lg font-semibold text-gray-900 mb-2">Upload Photos</label>
-              <input 
-                type="file" 
-                multiple 
-                accept="image/*" 
-                onChange={handleFiles} 
-                className="w-full border-2 border-gray-400 rounded-2xl px-5 py-4" 
-              />
-
+              <input type="file" multiple accept="image/*" onChange={handleFiles} className="w-full border-2 border-gray-400 rounded-2xl px-5 py-4" />
+              
               {previews.length > 0 && (
                 <div className="grid grid-cols-4 gap-3 mt-6">
                   {previews.map((src, i) => (
