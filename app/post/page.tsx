@@ -4,13 +4,18 @@ import { supabase } from '../lib/supabase';
 import Header from '../components/Header';
 
 export default function PostRoom() {
-  const [title, setTitle] = useState('');
-  const [price, setPrice] = useState('');
+  const [formData, setFormData] = useState({
+    title: '',
+    price: '',
+    location: 'Nairobi',
+    description: '',
+  });
+
   const [image, setImage] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const handleImage = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setImage(file);
@@ -18,6 +23,10 @@ export default function PostRoom() {
       reader.onload = () => setPreview(reader.result as string);
       reader.readAsDataURL(file);
     }
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -28,14 +37,11 @@ export default function PostRoom() {
 
     if (image) {
       const fileName = `${Date.now()}-${image.name}`;
-      const { data, error } = await supabase.storage
+      const { data } = await supabase.storage
         .from('room-images')
         .upload(fileName, image);
 
-      if (error) {
-        console.error("Upload Error:", error);
-        alert("Photo upload failed: " + error.message);
-      } else if (data) {
+      if (data) {
         imageUrl = supabase.storage.from('room-images').getPublicUrl(fileName).data.publicUrl;
       }
     }
@@ -43,18 +49,19 @@ export default function PostRoom() {
     const { data: userData } = await supabase.auth.getUser();
 
     const { error } = await supabase.from('listings').insert([{
-      title: title,
-      price: parseInt(price) || 15000,
-      image_url: imageUrl || null,
+      title: formData.title,
+      price: parseInt(formData.price) || 15000,
+      location: formData.location,
+      description: formData.description,
+      image_url: imageUrl,
       user_id: userData.user?.id
     }]);
 
     if (error) {
-      alert('Error posting: ' + error.message);
+      alert('Error: ' + error.message);
     } else {
-      alert(`✅ Posted! ${image ? 'With 1 photo' : 'No photo'}`);
-      setTitle('');
-      setPrice('');
+      alert('✅ Room posted successfully!');
+      setFormData({ title: '', price: '', location: 'Nairobi', description: '' });
       setImage(null);
       setPreview(null);
     }
@@ -66,39 +73,70 @@ export default function PostRoom() {
       <Header />
 
       <div className="max-w-3xl mx-auto px-6 pt-12">
-        <h1 className="text-4xl font-bold text-gray-900">Post Your Room</h1>
+        <h1 className="text-4xl font-bold text-gray-900 mb-2">Post Your Room</h1>
+        <p className="text-lg text-gray-700">Fill in the details to list your room</p>
 
-        <div className="bg-white rounded-3xl shadow p-10 mt-8">
-          <form onSubmit={handleSubmit}>
-            <div className="mb-8">
-              <label className="block font-semibold mb-2">Room Photo</label>
-              <input type="file" accept="image/*" onChange={handleImage} className="w-full border-2 border-gray-400 rounded-2xl p-4" />
-              {preview && <img src={preview} className="mt-4 h-48 rounded-2xl" />}
+        <div className="bg-white rounded-3xl shadow-lg p-10 mt-8">
+          <form onSubmit={handleSubmit} className="space-y-8">
+            {/* Photo Upload */}
+            <div>
+              <label className="block text-lg font-semibold text-gray-900 mb-2">Room Photo</label>
+              <input 
+                type="file" 
+                accept="image/*" 
+                onChange={handleImageChange} 
+                className="w-full border-2 border-gray-300 rounded-2xl px-5 py-4 text-gray-700"
+              />
+              {preview && <img src={preview} className="mt-4 h-52 rounded-2xl object-cover shadow" />}
             </div>
 
-            <input 
-              value={title} 
-              onChange={(e) => setTitle(e.target.value)} 
-              placeholder="Room Title" 
-              required 
-              className="w-full border-2 border-gray-400 rounded-2xl px-5 py-4 mb-6 text-lg" 
-            />
+            {/* Title */}
+            <div>
+              <label className="block text-lg font-semibold text-gray-900 mb-2">Room Title</label>
+              <input 
+                name="title" 
+                value={formData.title} 
+                onChange={handleChange} 
+                required 
+                type="text" 
+                placeholder="e.g. Spacious Single Room in Kilimani" 
+                className="w-full border-2 border-gray-300 rounded-2xl px-5 py-4 text-lg text-gray-900 focus:border-emerald-600" 
+              />
+            </div>
 
-            <input 
-              value={price} 
-              onChange={(e) => setPrice(e.target.value)} 
-              type="number" 
-              placeholder="Price (KSh)" 
-              required 
-              className="w-full border-2 border-gray-400 rounded-2xl px-5 py-4 mb-6 text-lg" 
-            />
+            {/* Price */}
+            <div>
+              <label className="block text-lg font-semibold text-gray-900 mb-2">Monthly Rent (KSh)</label>
+              <input 
+                name="price" 
+                value={formData.price} 
+                onChange={handleChange} 
+                required 
+                type="number" 
+                placeholder="18000" 
+                className="w-full border-2 border-gray-300 rounded-2xl px-5 py-4 text-lg text-gray-900 focus:border-emerald-600" 
+              />
+            </div>
 
-            <button type="submit" disabled={loading} className="w-full bg-emerald-600 text-white py-5 rounded-2xl text-xl">
-              {loading ? 'Posting...' : 'Post Room'}
-            </button>
-          </form>
-        </div>
-      </div>
-    </div>
-  );
-}
+            {/* Location */}
+            <div>
+              <label className="block text-lg font-semibold text-gray-900 mb-2">Location</label>
+              <input 
+                name="location" 
+                value={formData.location} 
+                onChange={handleChange} 
+                type="text" 
+                className="w-full border-2 border-gray-300 rounded-2xl px-5 py-4 text-lg text-gray-900 focus:border-emerald-600" 
+              />
+            </div>
+
+            {/* Description */}
+            <div>
+              <label className="block text-lg font-semibold text-gray-900 mb-2">Description</label>
+              <textarea 
+                name="description" 
+                value={formData.description} 
+                onChange={handleChange} 
+                rows={6} 
+                placeholder="Describe the room, amenities, rules, neighbourhood..." 
+                className="w-full border-2 border-gray-300 rounded-3xl px-5 py-4 text-lg text-gray-900
