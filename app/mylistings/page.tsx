@@ -90,12 +90,20 @@ export default function MyListings() {
                   {room.price && <p className="text-2xl font-bold text-emerald-600 mt-2">KSh {room.price}</p>}
                   {room.location && <p className="text-gray-600">{room.location}</p>}
 
-                  <button 
-                    onClick={() => deleteListing(room.id)}
-                    className="mt-6 w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-2xl font-medium"
-                  >
-                    Delete Listing
-                  </button>
+                  <div className="mt-6 flex gap-3">
+                    <Link 
+                      href={`/edit/${room.id}`}
+                      className="flex-1 border border-gray-300 py-3 rounded-2xl text-sm font-medium hover:bg-gray-50 text-center"
+                    >
+                      Edit
+                    </Link>
+                    <button 
+                      onClick={() => deleteListing(room.id)}
+                      className="flex-1 bg-red-600 hover:bg-red-700 text-white py-3 rounded-2xl text-sm font-medium"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
