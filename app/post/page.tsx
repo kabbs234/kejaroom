@@ -139,4 +139,20 @@ export default function PostRoom() {
                 onChange={handleChange} 
                 rows={6} 
                 placeholder="Describe the room, amenities, rules, neighbourhood..." 
-                className="w-full border-2 border-gray-300 rounded-3xl px-5 py-4 text-lg text-gray-900
+                className="w-full border-2 border-gray-300 rounded-3xl px-5 py-4 text-lg text-gray-900 focus:border-emerald-600"
+              ></textarea>
+            </div>
+
+            <button 
+              type="submit" 
+              disabled={loading}
+              className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-400 text-white font-semibold py-5 rounded-2xl text-xl transition-all"
+            >
+              {loading ? 'Posting your room...' : 'Post Room'}
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+}
