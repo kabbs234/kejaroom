@@ -31,32 +31,37 @@ export default function PostRoom() {
 
     let imageUrl = '';
 
+    // Upload photo
     if (image) {
       const fileName = `${Date.now()}-${image.name}`;
-      const { data } = await supabase.storage
+      const { data, error } = await supabase.storage
         .from('room-images')
-        .upload(fileName, image);
+        .upload(fileName, image, { upsert: true });
 
-      if (data) {
+      if (error) {
+        console.error("Upload error:", error);
+      } else if (data) {
         imageUrl = supabase.storage.from('room-images').getPublicUrl(fileName).data.publicUrl;
       }
     }
 
+    // Save room
     const { data: userData } = await supabase.auth.getUser();
 
-    const { error } = await supabase.from('listings').insert([{
+    const { error: insertError } = await supabase.from('listings').insert([{
       title: formData.title,
       price: parseInt(formData.price) || 15000,
       location: formData.location,
       description: formData.description,
-      image_url: imageUrl,
+      image_url: imageUrl || null,
       user_id: userData.user?.id
     }]);
 
-    if (error) {
-      alert('Error posting: ' + error.message);
+    if (insertError) {
+      alert('Error posting room: ' + insertError.message);
     } else {
       alert('✅ Room posted successfully!');
+      // Reset
       setFormData({ title: '', price: '', location: 'Nairobi', description: '' });
       setImage(null);
       setPreview(null);
@@ -76,7 +81,7 @@ export default function PostRoom() {
             <div>
               <label className="block text-lg font-semibold text-gray-900 mb-2">Room Photo</label>
               <input type="file" accept="image/*" onChange={handleImageChange} className="w-full border-2 border-gray-400 rounded-2xl px-5 py-4" />
-              {preview && <img src={preview} className="mt-4 h-48 rounded-2xl object-cover" />}
+              {preview && <img src={preview} alt="preview" className="mt-4 h-48 rounded-2xl object-cover" />}
             </div>
 
             <div>
@@ -89,7 +94,7 @@ export default function PostRoom() {
               <input name="price" value={formData.price} onChange={(e) => setFormData({...formData, price: e.target.value})} required type="number" placeholder="18000" className="w-full border-2 border-gray-400 rounded-2xl px-5 py-4 text-lg" />
             </div>
 
-            <button type="submit" disabled={loading} className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-400 text-white font-semibold py-5 rounded-2xl text-xl transition">
+            <button type="submit" disabled={loading} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-5 rounded-2xl text-xl">
               {loading ? 'Posting...' : 'Post Room'}
             </button>
           </form>
