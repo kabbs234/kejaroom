@@ -4,29 +4,19 @@ import { supabase } from '../lib/supabase';
 import Header from '../components/Header';
 
 export default function PostRoom() {
-  const [formData, setFormData] = useState({
-    title: '',
-    price: '',
-    location: 'Nairobi',
-    description: '',
-  });
-
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [previews, setPreviews] = useState<string[]>([]);
+  const [title, setTitle] = useState('');
+  const [price, setPrice] = useState('');
+  const [image, setImage] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const handleFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const files = Array.from(e.target.files);
-      setSelectedFiles(files);
-
-      const newPreviews: string[] = [];
-      files.forEach(file => {
-        const reader = new FileReader();
-        reader.onload = () => newPreviews.push(reader.result as string);
-        reader.readAsDataURL(file);
-      });
-      setPreviews(newPreviews);
+  const handleImage = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setImage(file);
+      const reader = new FileReader();
+      reader.onload = () => setPreview(reader.result as string);
+      reader.readAsDataURL(file);
     }
   };
 
@@ -34,39 +24,39 @@ export default function PostRoom() {
     e.preventDefault();
     setLoading(true);
 
-    const uploadedUrls: string[] = [];
+    let imageUrl = '';
 
-    // Upload all photos
-    for (const file of selectedFiles) {
-      const fileName = `${Date.now()}-${file.name}`;
-      const { data } = await supabase.storage
+    if (image) {
+      const fileName = `${Date.now()}-${image.name}`;
+      const { data, error } = await supabase.storage
         .from('room-images')
-        .upload(fileName, file);
+        .upload(fileName, image);
 
-      if (data) {
-        const url = supabase.storage.from('room-images').getPublicUrl(fileName).data.publicUrl;
-        uploadedUrls.push(url);
+      if (error) {
+        console.error("Upload Error:", error);
+        alert("Photo upload failed: " + error.message);
+      } else if (data) {
+        imageUrl = supabase.storage.from('room-images').getPublicUrl(fileName).data.publicUrl;
       }
     }
 
     const { data: userData } = await supabase.auth.getUser();
 
     const { error } = await supabase.from('listings').insert([{
-      title: formData.title,
-      price: parseInt(formData.price) || 15000,
-      location: formData.location,
-      description: formData.description,
-      image_url: uploadedUrls[0] || null,
+      title: title,
+      price: parseInt(price) || 15000,
+      image_url: imageUrl || null,
       user_id: userData.user?.id
     }]);
 
     if (error) {
-      alert('Error: ' + error.message);
+      alert('Error posting: ' + error.message);
     } else {
-      alert(`✅ Room posted successfully with ${uploadedUrls.length} photo(s)!`);
-      setFormData({ title: '', price: '', location: 'Nairobi', description: '' });
-      setSelectedFiles([]);
-      setPreviews([]);
+      alert(`✅ Posted! ${image ? 'With 1 photo' : 'No photo'}`);
+      setTitle('');
+      setPrice('');
+      setImage(null);
+      setPreview(null);
     }
     setLoading(false);
   };
@@ -76,41 +66,35 @@ export default function PostRoom() {
       <Header />
 
       <div className="max-w-3xl mx-auto px-6 pt-12">
-        <h1 className="text-4xl font-bold text-gray-900 mb-2">Post Your Room</h1>
+        <h1 className="text-4xl font-bold text-gray-900">Post Your Room</h1>
 
         <div className="bg-white rounded-3xl shadow p-10 mt-8">
-          <form onSubmit={handleSubmit} className="space-y-8">
-            <div>
-              <label className="block text-lg font-semibold text-gray-900 mb-2">Upload Multiple Photos</label>
-              <input 
-                type="file" 
-                multiple 
-                accept="image/*" 
-                onChange={handleFiles} 
-                className="w-full border-2 border-gray-400 rounded-2xl px-5 py-4" 
-              />
-              
-              {previews.length > 0 && (
-                <div className="grid grid-cols-4 gap-3 mt-6">
-                  {previews.map((src, i) => (
-                    <img key={i} src={src} className="h-24 object-cover rounded-2xl" />
-                  ))}
-                </div>
-              )}
+          <form onSubmit={handleSubmit}>
+            <div className="mb-8">
+              <label className="block font-semibold mb-2">Room Photo</label>
+              <input type="file" accept="image/*" onChange={handleImage} className="w-full border-2 border-gray-400 rounded-2xl p-4" />
+              {preview && <img src={preview} className="mt-4 h-48 rounded-2xl" />}
             </div>
 
-            <div>
-              <label className="block text-lg font-semibold text-gray-900 mb-2">Room Title</label>
-              <input name="title" value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})} required className="w-full border-2 border-gray-400 rounded-2xl px-5 py-4 text-lg" />
-            </div>
+            <input 
+              value={title} 
+              onChange={(e) => setTitle(e.target.value)} 
+              placeholder="Room Title" 
+              required 
+              className="w-full border-2 border-gray-400 rounded-2xl px-5 py-4 mb-6 text-lg" 
+            />
 
-            <div>
-              <label className="block text-lg font-semibold text-gray-900 mb-2">Monthly Rent (KSh)</label>
-              <input name="price" value={formData.price} onChange={(e) => setFormData({...formData, price: e.target.value})} required type="number" className="w-full border-2 border-gray-400 rounded-2xl px-5 py-4 text-lg" />
-            </div>
+            <input 
+              value={price} 
+              onChange={(e) => setPrice(e.target.value)} 
+              type="number" 
+              placeholder="Price (KSh)" 
+              required 
+              className="w-full border-2 border-gray-400 rounded-2xl px-5 py-4 mb-6 text-lg" 
+            />
 
-            <button type="submit" disabled={loading} className="w-full bg-emerald-600 text-white py-5 rounded-2xl text-xl font-semibold">
-              {loading ? 'Posting...' : `Post Room (${selectedFiles.length} photos)`}
+            <button type="submit" disabled={loading} className="w-full bg-emerald-600 text-white py-5 rounded-2xl text-xl">
+              {loading ? 'Posting...' : 'Post Room'}
             </button>
           </form>
         </div>
