@@ -1,7 +1,6 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { useRouter } from 'next/navigation';
 import Header from '../components/Header';
 
 export default function PostRoom() {
@@ -12,108 +11,81 @@ export default function PostRoom() {
     description: '',
   });
 
-  const [image, setImage] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [previews, setPreviews] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const router = useRouter();
 
-  // Authentication Guard
-  useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        router.push('/login');
-      } else {
-        setIsAuthenticated(true);
-      }
-    };
-    checkAuth();
-  }, [router]);
+  const handleFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const files = Array.from(e.target.files);
+      setSelectedFiles(files);
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setImage(file);
-      const reader = new FileReader();
-      reader.onload = () => setPreview(reader.result as string);
-      reader.readAsDataURL(file);
+      const previewUrls: string[] = [];
+      files.forEach(file => {
+        const reader = new FileReader();
+        reader.onload = () => previewUrls.push(reader.result as string);
+        reader.readAsDataURL(file);
+      });
+      setPreviews(previewUrls);
     }
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    let imageUrl = '';
+    const uploadedUrls: string[] = [];
 
-    if (image) {
-      const fileName = `${Date.now()}-${image.name}`;
-      const { data } = await supabase.storage
-        .from('room-images')
-        .upload(fileName, image);
-
+    for (const file of selectedFiles) {
+      const fileName = `${Date.now()}-${file.name}`;
+      const { data } = await supabase.storage.from('room-images').upload(fileName, file);
       if (data) {
-        imageUrl = supabase.storage.from('room-images').getPublicUrl(fileName).data.publicUrl;
+        const url = supabase.storage.from('room-images').getPublicUrl(fileName).data.publicUrl;
+        uploadedUrls.push(url);
       }
     }
 
     const { data: userData } = await supabase.auth.getUser();
 
-    const { error } = await supabase.from('listings').insert([{
+    await supabase.from('listings').insert([{
       title: formData.title,
       price: parseInt(formData.price) || 15000,
       location: formData.location,
       description: formData.description,
-      image_url: imageUrl,
+      image_url: uploadedUrls[0] || null,
+      images: uploadedUrls,           // All images
       user_id: userData.user?.id
     }]);
 
-    if (error) {
-      alert('Error: ' + error.message);
-    } else {
-      alert('✅ Room posted successfully!');
-      setFormData({ title: '', price: '', location: 'Nairobi', description: '' });
-      setImage(null);
-      setPreview(null);
-    }
+    alert('✅ Room posted with ' + uploadedUrls.length + ' photos!');
+    setFormData({ title: '', price: '', location: 'Nairobi', description: '' });
+    setSelectedFiles([]);
+    setPreviews([]);
     setLoading(false);
   };
-
-  if (!isAuthenticated) {
-    return <div className="min-h-screen flex items-center justify-center">Redirecting to login...</div>;
-  }
 
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
-
       <div className="max-w-3xl mx-auto px-6 pt-12">
-        <h1 className="text-4xl font-bold text-gray-900 mb-2">Post Your Room</h1>
+        <h1 className="text-4xl font-bold text-gray-900">Post Your Room</h1>
 
         <div className="bg-white rounded-3xl shadow p-10 mt-8">
-          <form onSubmit={handleSubmit} className="space-y-8">
-            <div>
-              <label className="block text-lg font-semibold text-gray-900 mb-2">Room Photo</label>
-              <input type="file" accept="image/*" onChange={handleImageChange} className="w-full border-2 border-gray-400 rounded-2xl px-5 py-4" />
-              {preview && <img src={preview} className="mt-4 h-48 rounded-2xl object-cover" />}
+          <form onSubmit={handleSubmit}>
+            <div className="mb-8">
+              <label className="block font-semibold mb-2">Upload Multiple Photos</label>
+              <input type="file" multiple accept="image/*" onChange={handleFiles} className="w-full border-2 border-gray-400 rounded-2xl p-4" />
+              {previews.length > 0 && (
+                <div className="grid grid-cols-4 gap-3 mt-4">
+                  {previews.map((src, i) => <img key={i} src={src} className="h-24 object-cover rounded-xl" />)}
+                </div>
+              )}
             </div>
 
-            <div>
-              <label className="block text-lg font-semibold text-gray-900 mb-2">Room Title</label>
-              <input name="title" value={formData.title} onChange={handleChange} required type="text" placeholder="e.g. Spacious Single Room in Kilimani" className="w-full border-2 border-gray-400 rounded-2xl px-5 py-4 text-lg" />
-            </div>
+            <input name="title" placeholder="Room Title" value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})} required className="w-full border-2 border-gray-400 rounded-2xl px-5 py-4 mb-6" />
+            <input name="price" type="number" placeholder="Price (KSh)" value={formData.price} onChange={(e) => setFormData({...formData, price: e.target.value})} required className="w-full border-2 border-gray-400 rounded-2xl px-5 py-4 mb-6" />
 
-            <div>
-              <label className="block text-lg font-semibold text-gray-900 mb-2">Monthly Rent (KSh)</label>
-              <input name="price" value={formData.price} onChange={handleChange} required type="number" placeholder="18000" className="w-full border-2 border-gray-400 rounded-2xl px-5 py-4 text-lg" />
-            </div>
-
-            <button type="submit" disabled={loading} className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-400 text-white font-semibold py-5 rounded-2xl text-xl">
+            <button type="submit" disabled={loading} className="w-full bg-emerald-600 text-white py-5 rounded-2xl text-xl">
               {loading ? 'Posting...' : 'Post Room'}
             </button>
           </form>
