@@ -36,7 +36,7 @@ export default function PostRoom() {
 
     const uploadedUrls: string[] = [];
 
-    // Upload photos
+    // Upload all photos
     for (const file of selectedFiles) {
       const fileName = `${Date.now()}-${file.name}`;
       const { data } = await supabase.storage
@@ -51,13 +51,12 @@ export default function PostRoom() {
 
     const { data: userData } = await supabase.auth.getUser();
 
-    // Only use existing columns
     const { error } = await supabase.from('listings').insert([{
       title: formData.title,
       price: parseInt(formData.price) || 15000,
       location: formData.location,
       description: formData.description,
-      image_url: uploadedUrls[0] || null,   // Save only first photo for now
+      image_url: uploadedUrls[0] || null,
       user_id: userData.user?.id
     }]);
 
@@ -82,8 +81,14 @@ export default function PostRoom() {
         <div className="bg-white rounded-3xl shadow p-10 mt-8">
           <form onSubmit={handleSubmit} className="space-y-8">
             <div>
-              <label className="block text-lg font-semibold text-gray-900 mb-2">Upload Photos</label>
-              <input type="file" multiple accept="image/*" onChange={handleFiles} className="w-full border-2 border-gray-400 rounded-2xl px-5 py-4" />
+              <label className="block text-lg font-semibold text-gray-900 mb-2">Upload Multiple Photos</label>
+              <input 
+                type="file" 
+                multiple 
+                accept="image/*" 
+                onChange={handleFiles} 
+                className="w-full border-2 border-gray-400 rounded-2xl px-5 py-4" 
+              />
               
               {previews.length > 0 && (
                 <div className="grid grid-cols-4 gap-3 mt-6">
